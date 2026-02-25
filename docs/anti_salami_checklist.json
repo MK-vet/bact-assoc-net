@@ -1,0 +1,12 @@
+{
+    "tool": "bact-assoc-net",
+    "version": "1.0.0",
+    "novelty_axis": "Information-theoretic multi-layer network with transfer entropy, PID decomposition, and simplicial topology",
+    "scope_boundary": "No clustering fusion; no MDR ontology; no phylogenetic comparative models",
+    "methodological_uniqueness": "Transfer entropy with surrogate permutation tests; Partial Information Decomposition (Williams & Beer 2010); Vietoris-Rips simplicial complexes on MI matrices",
+    "softwarex_positioning": {
+        "primary_user_story": "Association network inference for binary features with confounder-aware options",
+        "reusable_beyond_strepsuis": true,
+        "domain_adaptation_via_gui_and_config": true
+    }
+}

@@ -1,0 +1,35 @@
+# bact-assoc-net v1.0.0 — example configuration (schema_version 1.1)
+schema_version: "1.1"
+
+layers:
+  - name: MIC
+    path: examples/data/MIC.csv
+    id_column: Strain_ID
+  - name: AMR_genes
+    path: examples/data/AMR_genes.csv
+    id_column: Strain_ID
+  - name: Virulence
+    path: examples/data/Virulence.csv
+    id_column: Strain_ID
+
+output_dir: results/network
+id_column: Strain_ID
+
+info_theory:
+  # surrogate-tested mutual information (optional; expensive if enabled with large mi_n_surrogate)
+  surrogate_mi_enabled: true
+  mi_n_surrogate: 200
+  mi_alpha: 0.05
+  pid_enabled: true
+  simplicial_enabled: true
+  simplicial_max_dim: 3
+
+network:
+  phi_method: adaptive
+  phi_percentile: 90
+  phi_fixed: 0.3
+  fdr_method: fdr_bh
+  alpha: 0.05
+
+n_jobs: -1
+seed: 42
