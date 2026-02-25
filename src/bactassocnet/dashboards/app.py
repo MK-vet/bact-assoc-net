@@ -38,7 +38,9 @@ def _(mo):
 @app.cell
 def _(mo):
     data_root = mo.ui.text(value=str(Path.cwd()), label="Data root")
-    out_root = mo.ui.text(value=str(Path.cwd() / "bactassocnet_out"), label="Output directory")
+    out_root = mo.ui.text(
+        value=str(Path.cwd() / "bactassocnet_out"), label="Output directory"
+    )
 
     mic = mo.ui.text(value="MIC.csv", label="MIC CSV (optional)")
     amr = mo.ui.text(value="AMR_genes.csv", label="AMR genes CSV (optional)")
@@ -87,7 +89,24 @@ def _(mo):
 
 
 @app.cell
-def _(Path, mo, yaml, amr, config_strict, data_root, fdr, mic, mi_n, mlst, out_root, phi_method, schema_version, sero, surrogate_mi, vir):
+def _(
+    Path,
+    mo,
+    yaml,
+    amr,
+    config_strict,
+    data_root,
+    fdr,
+    mic,
+    mi_n,
+    mlst,
+    out_root,
+    phi_method,
+    schema_version,
+    sero,
+    surrogate_mi,
+    vir,
+):
     def _abs(p: str) -> str:
         p = p.strip()
         if not p:
@@ -126,7 +145,11 @@ def _(Path, mo, yaml, amr, config_strict, data_root, fdr, mic, mi_n, mlst, out_r
         "reliability": {"enabled": True, "fail_fast": False},
     }
 
-    editor = mo.ui.text_area(value=yaml.safe_dump(cfg, sort_keys=False), label="Config YAML (editable)", rows=20)
+    editor = mo.ui.text_area(
+        value=yaml.safe_dump(cfg, sort_keys=False),
+        label="Config YAML (editable)",
+        rows=20,
+    )
     mo.md("## Config editor")
     editor
     return editor
@@ -149,9 +172,19 @@ def _(Path, json, mo, subprocess, sys, time, editor, out_root):
         cfg_path.write_text(editor.value, encoding="utf-8")
         cmd = [sys.executable, "-m", "bactassocnet.cli", "--config", str(cfg_path)]
         with open(log_path, "ab") as f:
-            proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(out_dir))
+            proc = subprocess.Popen(
+                cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(out_dir)
+            )
         state_path.write_text(
-            json.dumps({"pid": proc.pid, "cmd": cmd, "started_at": time.time(), "cwd": str(out_dir)}, indent=2),
+            json.dumps(
+                {
+                    "pid": proc.pid,
+                    "cmd": cmd,
+                    "started_at": time.time(),
+                    "cwd": str(out_dir),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
 
@@ -179,10 +212,16 @@ def _(Path, mo, pd, out_root):
     out_dir = Path(out_root.value)
     pattern = mo.ui.text(value="*.csv", label="File glob")
     limit = mo.ui.number(value=200, label="Preview rows", step=50)
-    label_map = mo.ui.text_area(value="{}", label="Label map (JSON) — applied to displayed tables", rows=4)
+    label_map = mo.ui.text_area(
+        value="{}", label="Label map (JSON) — applied to displayed tables", rows=4
+    )
     mo.vstack([mo.hstack([pattern, limit]), label_map])
 
-    files = sorted([p for p in out_dir.rglob(pattern.value) if p.is_file()]) if out_dir.exists() else []
+    files = (
+        sorted([p for p in out_dir.rglob(pattern.value) if p.is_file()])
+        if out_dir.exists()
+        else []
+    )
     if not files:
         mo.md("No files yet.")
         return
@@ -201,7 +240,9 @@ def _(Path, mo, pd, out_root):
         try:
             mapping = __import__("json").loads(label_map.value or "{}")
             if isinstance(mapping, dict) and mapping:
-                df = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns})
+                df = df.rename(
+                    columns={k: v for k, v in mapping.items() if k in df.columns}
+                )
                 for c in df.columns:
                     if df[c].dtype == object:
                         df[c] = df[c].replace(mapping)
@@ -228,10 +269,20 @@ def _(Path, mo, out_root, pd):
         return
 
     # Try to infer source/target columns
-    src = "source" if "source" in edges.columns else ("Feature_A" if "Feature_A" in edges.columns else None)
-    dst = "target" if "target" in edges.columns else ("Feature_B" if "Feature_B" in edges.columns else None)
+    src = (
+        "source"
+        if "source" in edges.columns
+        else ("Feature_A" if "Feature_A" in edges.columns else None)
+    )
+    dst = (
+        "target"
+        if "target" in edges.columns
+        else ("Feature_B" if "Feature_B" in edges.columns else None)
+    )
     if src is None or dst is None:
-        mo.md("Could not infer edge columns (expected source/target or Feature_A/Feature_B).")
+        mo.md(
+            "Could not infer edge columns (expected source/target or Feature_A/Feature_B)."
+        )
         return
 
     # Degree from edges (sample if huge)
@@ -254,16 +305,56 @@ def _(Path, mo, out_root, pd):
 def _(mo):
     mo.md("## Output reference")
     artifacts = [
-        {"file": "associations_all.csv", "meaning": "All tested feature pairs + association statistics.", "interpretation": "Use to audit false positives; filter by prevalence and effect size."},
-        {"file": "associations_filtered.csv", "meaning": "Edges after thresholding and (optionally) FDR.", "interpretation": "Main edge list; verify robustness with sensitivity settings."},
-        {"file": "network_summary.csv", "meaning": "Network-level metrics.", "interpretation": "Check components/hubs; a single giant component may indicate a low threshold."},
-        {"file": "ising_direct_edges.csv", "meaning": "Approximate direct edges (reduces indirect correlations).", "interpretation": "Prefer for mechanistic hypotheses; still not causal."},
-        {"file": "simplicial_sweep.csv", "meaning": "Higher-order topology across thresholds.", "interpretation": "Betti/Euler changes indicate modularity vs dense cores."},
-        {"file": "topology_persistence.csv", "meaning": "Topological persistence vs threshold.", "interpretation": "Features stable across thresholds are more robust."},
-        {"file": "multilayer_dispersion.csv", "meaning": "Layer dispersion/informativeness metrics.", "interpretation": "Helps identify layers dominating the graph."},
-        {"file": "layer_flow.csv", "meaning": "Cross-layer information flow summary.", "interpretation": "Shows which layer drives associations."},
-        {"file": "config_validation.json", "meaning": "Config schema + unknown-key report.", "interpretation": "Fix config if strict mode fails."},
-        {"file": "run_manifest.json", "meaning": "Input hashes + environment.", "interpretation": "Reproducibility."},
+        {
+            "file": "associations_all.csv",
+            "meaning": "All tested feature pairs + association statistics.",
+            "interpretation": "Use to audit false positives; filter by prevalence and effect size.",
+        },
+        {
+            "file": "associations_filtered.csv",
+            "meaning": "Edges after thresholding and (optionally) FDR.",
+            "interpretation": "Main edge list; verify robustness with sensitivity settings.",
+        },
+        {
+            "file": "network_summary.csv",
+            "meaning": "Network-level metrics.",
+            "interpretation": "Check components/hubs; a single giant component may indicate a low threshold.",
+        },
+        {
+            "file": "ising_direct_edges.csv",
+            "meaning": "Approximate direct edges (reduces indirect correlations).",
+            "interpretation": "Prefer for mechanistic hypotheses; still not causal.",
+        },
+        {
+            "file": "simplicial_sweep.csv",
+            "meaning": "Higher-order topology across thresholds.",
+            "interpretation": "Betti/Euler changes indicate modularity vs dense cores.",
+        },
+        {
+            "file": "topology_persistence.csv",
+            "meaning": "Topological persistence vs threshold.",
+            "interpretation": "Features stable across thresholds are more robust.",
+        },
+        {
+            "file": "multilayer_dispersion.csv",
+            "meaning": "Layer dispersion/informativeness metrics.",
+            "interpretation": "Helps identify layers dominating the graph.",
+        },
+        {
+            "file": "layer_flow.csv",
+            "meaning": "Cross-layer information flow summary.",
+            "interpretation": "Shows which layer drives associations.",
+        },
+        {
+            "file": "config_validation.json",
+            "meaning": "Config schema + unknown-key report.",
+            "interpretation": "Fix config if strict mode fails.",
+        },
+        {
+            "file": "run_manifest.json",
+            "meaning": "Input hashes + environment.",
+            "interpretation": "Reproducibility.",
+        },
     ]
     mo.ui.table(artifacts, pagination=True, label="Artifacts")
 
