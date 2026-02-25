@@ -4,6 +4,7 @@ Core information-theoretic and association metrics.
 Retained from v1: entropy, conditional entropy, NMI, chi2_phi, adaptive threshold.
 These are the building blocks; advanced.py adds the novel contributions.
 """
+
 from __future__ import annotations
 from itertools import combinations
 from typing import Dict, List
@@ -13,34 +14,42 @@ from scipy.stats import chi2_contingency, fisher_exact, entropy as sp_entropy
 
 # ── entropy functions ────────────────────────────────────────────────────
 
+
 def shannon_H(x: np.ndarray) -> float:
     _, c = np.unique(x, return_counts=True)
     return float(sp_entropy(c, base=np.e))
+
 
 def joint_H(x: np.ndarray, y: np.ndarray) -> float:
     combo = np.column_stack([x, y])
     _, c = np.unique(combo, axis=0, return_counts=True)
     return float(sp_entropy(c, base=np.e))
 
+
 def cond_H(x: np.ndarray, y: np.ndarray) -> float:
     """H(X|Y) = H(X,Y) − H(Y)."""
     return joint_H(x, y) - shannon_H(y)
 
+
 def mi(x: np.ndarray, y: np.ndarray) -> float:
     """I(X;Y) = H(X) + H(Y) − H(X,Y)."""
     return shannon_H(x) + shannon_H(y) - joint_H(x, y)
+
 
 # Backwards-compatible alias used by the pipeline.
 def mutual_information(x: np.ndarray, y: np.ndarray) -> float:
     """Alias for :func:`mi` (kept for API stability)."""
     return mi(x, y)
 
+
 def nmi(x: np.ndarray, y: np.ndarray) -> float:
     """Normalised MI = I(X;Y) / sqrt(H(X)·H(Y))."""
     hx, hy = shannon_H(x), shannon_H(y)
     return mi(x, y) / np.sqrt(hx * hy) if hx > 0 and hy > 0 else 0.0
 
+
 # ── chi-square / phi ─────────────────────────────────────────────────────
+
 
 def chi2_phi(x: pd.Series, y: pd.Series) -> Dict[str, float]:
     """Chi-square/Fisher association for binary data with explicit missingness handling.
@@ -51,7 +60,14 @@ def chi2_phi(x: pd.Series, y: pd.Series) -> Dict[str, float]:
     y = pd.Series(y)
     m = x.notna() & y.notna()
     if int(m.sum()) < 4:
-        return {"chi2": np.nan, "p": 1.0, "phi": np.nan, "phi_ci_lo": np.nan, "phi_ci_hi": np.nan, "n": int(m.sum())}
+        return {
+            "chi2": np.nan,
+            "p": 1.0,
+            "phi": np.nan,
+            "phi_ci_lo": np.nan,
+            "phi_ci_hi": np.nan,
+            "n": int(m.sum()),
+        }
 
     xv = x[m].astype(int).to_numpy()
     yv = y[m].astype(int).to_numpy()
@@ -79,21 +95,28 @@ def chi2_phi(x: pd.Series, y: pd.Series) -> Dict[str, float]:
     lo = np.tanh(z - 1.96 * se)
     hi = np.tanh(z + 1.96 * se)
 
-    return {"chi2": float(chi2) if np.isfinite(chi2) else np.nan,
-            "p": float(p),
-            "phi": float(phi),
-            "phi_ci_lo": float(lo),
-            "phi_ci_hi": float(hi),
-            "n": int(n)}
+    return {
+        "chi2": float(chi2) if np.isfinite(chi2) else np.nan,
+        "p": float(p),
+        "phi": float(phi),
+        "phi_ci_lo": float(lo),
+        "phi_ci_hi": float(hi),
+        "n": int(n),
+    }
+
 
 # ── adaptive threshold ───────────────────────────────────────────────────
 
+
 def adaptive_phi_threshold(
-    phis: np.ndarray, method: str = "percentile", percentile: int = 90,
+    phis: np.ndarray,
+    method: str = "percentile",
+    percentile: int = 90,
 ) -> float:
     """Adaptive edge threshold: percentile, IQR, or statistical."""
     phis = np.abs(phis[np.isfinite(phis)])
-    if len(phis) == 0: return 0.3
+    if len(phis) == 0:
+        return 0.3
     if method == "percentile":
         return float(np.percentile(phis, percentile))
     elif method == "iqr":
@@ -103,10 +126,14 @@ def adaptive_phi_threshold(
         return float(np.mean(phis) + 2 * np.std(phis))
     return 0.3
 
+
 # ── mutual exclusivity ──────────────────────────────────────────────────
 
+
 def find_mutually_exclusive(
-    df: pd.DataFrame, features: List[str], k: int = 2,
+    df: pd.DataFrame,
+    features: List[str],
+    k: int = 2,
 ) -> pd.DataFrame:
     """Detect feature pairs/triplets that never co-occur."""
     rows = []

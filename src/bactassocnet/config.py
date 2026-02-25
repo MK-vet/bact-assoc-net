@@ -10,6 +10,7 @@ Strict mode triggers
 - YAML key: config_strict: true
 - Env var: SSUIS_CONFIG_STRICT=1
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -39,7 +40,9 @@ def _dataclass_allowed_fields(dc_cls: Any) -> set[str]:
     return {f.name for f in _dc.fields(dc_cls)}
 
 
-def _validate_and_filter(dc_cls: Any, raw: Any, prefix: str, unknown_paths: List[str]) -> Any:
+def _validate_and_filter(
+    dc_cls: Any, raw: Any, prefix: str, unknown_paths: List[str]
+) -> Any:
     """Return filtered raw structure matching dc_cls; accumulate unknown key paths."""
     if raw is None:
         raw = {}
@@ -59,16 +62,28 @@ def _validate_and_filter(dc_cls: Any, raw: Any, prefix: str, unknown_paths: List
                 continue
             tp = f.type
             if _is_dataclass_type(tp) and isinstance(v, dict):
-                filtered[k] = _validate_and_filter(tp, v, f"{prefix}.{k}" if prefix else k, unknown_paths)
+                filtered[k] = _validate_and_filter(
+                    tp, v, f"{prefix}.{k}" if prefix else k, unknown_paths
+                )
             else:
                 origin = get_origin(tp)
                 args = get_args(tp)
-                if origin in (list, List) and args and _is_dataclass_type(args[0]) and isinstance(v, list):
+                if (
+                    origin in (list, List)
+                    and args
+                    and _is_dataclass_type(args[0])
+                    and isinstance(v, list)
+                ):
                     filtered_list = []
                     for i, item in enumerate(v):
                         if isinstance(item, dict):
                             filtered_list.append(
-                                _validate_and_filter(args[0], item, f"{prefix}.{k}[{i}]" if prefix else f"{k}[{i}]", unknown_paths)
+                                _validate_and_filter(
+                                    args[0],
+                                    item,
+                                    f"{prefix}.{k}[{i}]" if prefix else f"{k}[{i}]",
+                                    unknown_paths,
+                                )
                             )
                         else:
                             filtered_list.append(item)
@@ -86,14 +101,14 @@ class LayerSpec:
     name: str
     path: str
     id_column: str = "Strain_ID"
-    format: str = "auto"             # auto | wide | long
+    format: str = "auto"  # auto | wide | long
     feature_column: str | None = None
     value_column: str | None = None
 
 
 @dataclass
 class InputSpec:
-    align_mode: str = "union"       # union | intersection
+    align_mode: str = "union"  # union | intersection
     drop_samples_with_missing: bool = False
     max_missing_sample: float = 0.0
     max_missing_feature: float = 0.0
@@ -109,8 +124,12 @@ class FeatureQCSpec:
 @dataclass
 class ConditionalSpec:
     enabled: bool = True
-    confounders: List[str] = field(default_factory=list)  # column names from confounder CSV(s)
-    confounder_files: List[str] = field(default_factory=list)  # CSV paths with id_column + confounder cols
+    confounders: List[str] = field(
+        default_factory=list
+    )  # column names from confounder CSV(s)
+    confounder_files: List[str] = field(
+        default_factory=list
+    )  # CSV paths with id_column + confounder cols
 
 
 @dataclass
@@ -125,12 +144,12 @@ class InfoTheorySpec:
 
 @dataclass
 class NetworkSpec:
-    phi_method: str = "adaptive"     # adaptive | fixed
+    phi_method: str = "adaptive"  # adaptive | fixed
     phi_percentile: int = 90
     phi_fixed: float = 0.3
     fdr_method: str = "fdr_bh"
     alpha: float = 0.05
-    min_pairwise_n: int = 20        # minimum complete-case N for a pair
+    min_pairwise_n: int = 20  # minimum complete-case N for a pair
 
 
 @dataclass
@@ -140,7 +159,7 @@ class Config:
     config_strict: bool = False
 
     layers: List[LayerSpec] = field(default_factory=list)
-    input_dir: str = ""              # if set, auto-discover CSVs in dir
+    input_dir: str = ""  # if set, auto-discover CSVs in dir
     output_dir: str = "network_results"
     id_column: str = "Strain_ID"
     input: InputSpec = field(default_factory=InputSpec)
@@ -157,7 +176,9 @@ class Config:
 
         # schema version check
         schema_in = str(raw.get("schema_version", "1.0"))
-        strict = bool(raw.get("config_strict", False)) or (os.environ.get("SSUIS_CONFIG_STRICT", "0") == "1")
+        strict = bool(raw.get("config_strict", False)) or (
+            os.environ.get("SSUIS_CONFIG_STRICT", "0") == "1"
+        )
         if schema_in not in SUPPORTED_SCHEMA_VERSIONS:
             msg = f"Unsupported schema_version={schema_in!r}. Supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)}"
             if strict:
@@ -165,17 +186,29 @@ class Config:
             logger.warning(msg)
 
         unknown_paths: List[str] = []
-        filtered = _validate_and_filter(cls, raw, prefix="", unknown_paths=unknown_paths)
+        filtered = _validate_and_filter(
+            cls, raw, prefix="", unknown_paths=unknown_paths
+        )
 
         # instantiate
-        layers = [LayerSpec(**(l or {})) for l in (filtered.pop("layers", []) or [])]
+        layers = [
+            LayerSpec(**(lyr or {})) for lyr in (filtered.pop("layers", []) or [])
+        ]
         inp = InputSpec(**(filtered.pop("input", {}) or {}))
         fqc = FeatureQCSpec(**(filtered.pop("feature_qc", {}) or {}))
         cond = ConditionalSpec(**(filtered.pop("conditional", {}) or {}))
         it = InfoTheorySpec(**(filtered.pop("info_theory", {}) or {}))
         net = NetworkSpec(**(filtered.pop("network", {}) or {}))
 
-        cfg = cls(layers=layers, input=inp, feature_qc=fqc, conditional=cond, info_theory=it, network=net, **filtered)
+        cfg = cls(
+            layers=layers,
+            input=inp,
+            feature_qc=fqc,
+            conditional=cond,
+            info_theory=it,
+            network=net,
+            **filtered,
+        )
 
         # attach validation payload for CLI/pipeline
         cfg._config_validation = {
@@ -184,11 +217,16 @@ class Config:
             "supported_schema_versions": sorted(SUPPORTED_SCHEMA_VERSIONS),
             "unknown_keys": sorted(set(unknown_paths)),
             "strict": strict,
-            "status": "PASS" if (schema_in in SUPPORTED_SCHEMA_VERSIONS and not unknown_paths) else ("WARN" if not strict else "FAIL"),
+            "status": "PASS"
+            if (schema_in in SUPPORTED_SCHEMA_VERSIONS and not unknown_paths)
+            else ("WARN" if not strict else "FAIL"),
         }
 
         if unknown_paths:
-            msg = f"Unknown config keys ignored ({len(set(unknown_paths))}): {sorted(set(unknown_paths))[:20]}" + (" ..." if len(set(unknown_paths)) > 20 else "")
+            msg = (
+                f"Unknown config keys ignored ({len(set(unknown_paths))}): {sorted(set(unknown_paths))[:20]}"
+                + (" ..." if len(set(unknown_paths)) > 20 else "")
+            )
             if strict:
                 raise ValueError(msg)
             logger.warning(msg)
@@ -201,8 +239,10 @@ class Config:
             return self.layers
         if self.input_dir:
             p = Path(self.input_dir)
-            return [LayerSpec(name=f.stem, path=str(f), id_column=self.id_column)
-                    for f in sorted(p.glob("*.csv"))]
+            return [
+                LayerSpec(name=f.stem, path=str(f), id_column=self.id_column)
+                for f in sorted(p.glob("*.csv"))
+            ]
         return []
 
     def to_yaml(self, path: str | Path) -> None:
@@ -215,4 +255,6 @@ class Config:
                 return [ser(v) for v in o]
             return o
 
-        Path(path).write_text(yaml.dump(ser(self), default_flow_style=False, sort_keys=False))
+        Path(path).write_text(
+            yaml.dump(ser(self), default_flow_style=False, sort_keys=False)
+        )

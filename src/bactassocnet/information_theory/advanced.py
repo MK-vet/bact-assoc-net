@@ -7,6 +7,7 @@ Methodological note:
 
 - A true TE is exposed only for genuine time series with an explicit lag and ordered observations.
 """
+
 from __future__ import annotations
 
 from typing import Dict
@@ -43,7 +44,14 @@ def surrogate_mi(
     y = y[m].astype(int).to_numpy()
     n = int(len(x))
     if n < 10:
-        return {"MI": np.nan, "Z": np.nan, "P": 1.0, "N": n, "Mean_Surr": np.nan, "SD_Surr": np.nan}
+        return {
+            "MI": np.nan,
+            "Z": np.nan,
+            "P": 1.0,
+            "N": n,
+            "Mean_Surr": np.nan,
+            "SD_Surr": np.nan,
+        }
 
     mi0 = float(mutual_information(x, y))
 
@@ -73,7 +81,9 @@ def transfer_entropy(
     For cross-sectional layers, TE is not defined: set time_series=True to enable.
     """
     if not time_series:
-        raise ValueError("Transfer entropy requires time_series=True and an explicit lag on ordered observations.")
+        raise ValueError(
+            "Transfer entropy requires time_series=True and an explicit lag on ordered observations."
+        )
     te = transfer_entropy_timeseries(source, target, lag=lag)
     return {"TE": float(te), "Lag": int(lag)}
 
@@ -95,7 +105,7 @@ def transfer_entropy_timeseries(
 
     te = 0.0
     for u in (0, 1):
-        m = (t_lag == u)
+        m = t_lag == u
         if m.sum() < 5:
             continue
         te += (m.mean()) * mutual_information(s_lag[m], t_now[m])
@@ -145,7 +155,9 @@ def pid(t: np.ndarray, s1: np.ndarray, s2: np.ndarray) -> Dict[str, float]:
 
     dominant = "redundant" if red >= syn else "synergistic"
     return {
-        "I_S1": I1, "I_S2": I2, "I_Total": Itot,
+        "I_S1": I1,
+        "I_S2": I2,
+        "I_Total": Itot,
         "Redundancy": float(red),
         "Unique_S1": float(u1),
         "Unique_S2": float(u2),
@@ -165,6 +177,7 @@ def build_simplicial_complex(
     Returns counts by simplex dimension and Euler characteristic (using triangles for dim=2).
     """
     import networkx as nx
+
     edf = edges.copy()
     if "Feature1" in edf.columns and "Feature2" in edf.columns:
         ucol, vcol = "Feature1", "Feature2"
